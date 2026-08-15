@@ -1,6 +1,6 @@
 {
   "name": "mcpscan",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Static scanner for malicious MCP config files in AI-integrated editor repos",
   "type": "module",
   "bin": {
@@ -10,8 +10,18 @@
     "dist",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mayhemx87/mcpscan.git"
+  },
+  "homepage": "https://github.com/mayhemx87/mcpscan#readme",
+  "bugs": {
+    "url": "https://github.com/mayhemx87/mcpscan/issues"
+  },
   "scripts": {
     "build": "tsc",
+    "prepare": "tsc",
+    "prepublishOnly": "npm test && npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -21,6 +31,7 @@
     "scanner",
     "static-analysis",
     "supply-chain",
+    "sarif",
     "ai",
     "claude",
     "cursor",

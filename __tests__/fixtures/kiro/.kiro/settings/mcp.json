@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kiro-tools": {
+      "command": "uvx",
+      "args": ["unpinned-kiro-server"]
+    }
+  }
+}

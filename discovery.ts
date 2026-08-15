@@ -1,7 +1,11 @@
-import { readdirSync, statSync } from 'fs';
+import { readdirSync, lstatSync } from 'fs';
 import { join, relative, resolve } from 'path';
 
-const SKIP_DIRS = new Set(['.git', 'node_modules', 'dist', '.cache', '__pycache__', '__tests__']);
+// Only .git (never auto-loaded) and node_modules (never auto-loaded, huge) are
+// skipped. Everything else is scanned -- a security tool must not assume a
+// directory name like "dist" or "__tests__" makes a config harmless, because
+// any subdirectory can be opened as a workspace root.
+const SKIP_DIRS = new Set(['.git', 'node_modules']);
 
 /**
  * Returns true if the relative path from scan root matches a known
@@ -14,6 +18,8 @@ const MCP_CONFIG_SUFFIXES = [
   '.cursor/mcp.json',
   '.vscode/mcp.json',
   '.windsurf/mcp.json',
+  '.roo/mcp.json',
+  '.kiro/settings/mcp.json',
   // Embedded hosts (v0.2.0): MCP servers under a nested key; the engine
   // ignores these files entirely when they carry no MCP section.
   '.vscode/settings.json',
@@ -58,9 +64,12 @@ function walkDir(
   for (const entry of entries) {
     const fullPath = join(currentDir, entry);
 
+    // lstat, not stat: symlinked directories are never followed. This keeps
+    // traversal inside the scan root and immune to symlink loops -- a
+    // malicious repo must not be able to point the scanner at / or at itself.
     let isDir = false;
     try {
-      isDir = statSync(fullPath).isDirectory();
+      isDir = lstatSync(fullPath).isDirectory();
     } catch {
       continue;
     }

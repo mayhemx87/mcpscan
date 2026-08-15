@@ -1,0 +1,15 @@
+# Hook definition for the pre-commit framework (https://pre-commit.com).
+# Usage in a consumer repo's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/mayhemx87/mcpscan
+#       rev: v0.3.0
+#       hooks:
+#         - id: mcpscan
+- id: mcpscan
+  name: mcpscan (MCP config security scan)
+  description: Scan repository MCP config files for supply-chain and credential risks
+  entry: mcpscan . --fail-on high
+  language: node
+  pass_filenames: false
+  always_run: true
