@@ -154,7 +154,7 @@ describe('CLI -- C3', () => {
         expect(existsSync(hookPath)).toBe(true);
         const hook = readFileSync(hookPath, 'utf-8');
         expect(hook).toMatch(/# MCPScan pre-commit hook/);
-        expect(hook).toMatch(/npx --yes mcpscan@latest/);
+        expect(hook).toMatch(/npx --yes @mayhemx87\/mcpscan@latest/);
 
         const second = runCli(['install-hook', repoDir]);
         expect(second.exitCode).toBe(0);
