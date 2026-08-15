@@ -1,10 +1,10 @@
 {
-  "name": "mcpscan",
-  "version": "0.3.0",
+  "name": "@mayhemx87/mcpscan",
+  "version": "0.3.1",
   "description": "Static scanner for malicious MCP config files in AI-integrated editor repos",
   "type": "module",
   "bin": {
-    "mcpscan": "./dist/cli.js"
+    "mcpscan": "dist/cli.js"
   },
   "files": [
     "dist",

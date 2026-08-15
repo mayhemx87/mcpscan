@@ -3,7 +3,7 @@
 #
 #   repos:
 #     - repo: https://github.com/mayhemx87/mcpscan
-#       rev: v0.3.0
+#       rev: v0.3.1
 #       hooks:
 #         - id: mcpscan
 - id: mcpscan

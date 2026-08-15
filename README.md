@@ -38,12 +38,15 @@ problem.
 ## Install
 
 ```sh
-# from source (npm publish pending)
-npm install -g github:mayhemx87/mcpscan
+npm install -g @mayhemx87/mcpscan
 
-# once published
-npm install -g mcpscan
+# or straight from the repo
+npm install -g github:mayhemx87/mcpscan
 ```
+
+Either way the installed command is `mcpscan`. (The npm package is scoped
+because the registry reserves the bare name as too similar to `mcp-scan` —
+a different, runtime-focused tool.)
 
 ## Usage
 
@@ -88,7 +91,7 @@ the exact line of the offending server definition.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/mayhemx87/mcpscan
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: mcpscan
 ```

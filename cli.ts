@@ -17,7 +17,9 @@ function loadVersion(): string {
   for (const p of [join(moduleDir, 'package.json'), join(moduleDir, '..', 'package.json')]) {
     try {
       const pkg = JSON.parse(readFileSync(p, 'utf-8')) as { name?: string; version?: string };
-      if (pkg.name === 'mcpscan' && pkg.version) return pkg.version;
+      if ((pkg.name === '@mayhemx87/mcpscan' || pkg.name === 'mcpscan') && pkg.version) {
+        return pkg.version;
+      }
     } catch {
       /* try next */
     }
@@ -178,7 +180,7 @@ if command -v mcpscan >/dev/null 2>&1; then
   mcpscan . --fail-on high --quiet
   MCPSCAN_EXIT=$?
 else
-  npx --yes mcpscan@latest . --fail-on high --quiet
+  npx --yes @mayhemx87/mcpscan@latest . --fail-on high --quiet
   MCPSCAN_EXIT=$?
 fi
 
