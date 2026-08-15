@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Malicious fixture must fail the scan
+        run: |
+          set +e
+          node dist/cli.js __tests__/fixtures/cve-12957 --fail-on critical
+          [ $? -eq 1 ] || { echo "expected exit 1"; exit 1; }
+      - name: Clean fixture must pass the scan
+        run: node dist/cli.js __tests__/fixtures/clean-repo --fail-on high
+      - name: SARIF output is valid JSON
+        run: |
+          node dist/cli.js __tests__/fixtures/cve-12957 --sarif > out.sarif || true
+          node -e "JSON.parse(require('fs').readFileSync('out.sarif','utf8')); console.log('SARIF OK')"
+
+  action-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the local action against the clean fixture
+        uses: ./
+        with:
+          path: __tests__/fixtures/clean-repo
+          fail-on: high

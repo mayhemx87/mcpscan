@@ -1,4 +1,10 @@
-import { parse as parseJsonc, type ParseError } from 'jsonc-parser';
+import {
+  parse as parseJsonc,
+  parseTree,
+  findNodeAtLocation,
+  type Node,
+  type ParseError,
+} from 'jsonc-parser';
 
 export type Severity = 'critical' | 'high' | 'medium' | 'info';
 
@@ -9,6 +15,26 @@ export const SEVERITY_RANK: Record<Severity, number> = {
   info: 1,
 };
 
+export interface RuleMeta {
+  id: string;
+  severity: Severity;
+  description: string;
+}
+
+export const RULES: RuleMeta[] = [
+  { id: 'MCP-001', severity: 'critical', description: 'Server command or args execute a remote URL or network tool (curl, wget, https://)' },
+  { id: 'MCP-002', severity: 'high',     description: 'Server uses npx/uvx/pipx with an unversioned package, in command or args (supply-chain risk)' },
+  { id: 'MCP-003', severity: 'high',     description: 'Server env block inherits high-value credential env vars (AWS_*, GITHUB_TOKEN, etc.)' },
+  { id: 'MCP-004', severity: 'medium',   description: 'Server command or args reference a path outside the repository (absolute or ../)' },
+  { id: 'MCP-005', severity: 'medium',   description: 'MCP config file is not tracked by git (may have been injected)' },
+  { id: 'MCP-006', severity: 'info',     description: 'Server passed all detection rules (inventory signal)' },
+  { id: 'MCP-007', severity: 'critical', description: 'Hardcoded secret-looking value in env or headers (committed credential; ${VAR} interpolations exempt)' },
+  { id: 'MCP-008', severity: 'info',     description: 'Remote MCP server (url-based) declared -- inventory; escalates to HIGH over insecure http://' },
+  { id: 'MCP-009', severity: 'medium',   description: 'Shell command-chaining metacharacters in command/args ($(), backticks, | sh)' },
+  { id: 'MCP-PARSE', severity: 'high',   description: 'MCP config file has invalid JSON syntax -- cannot verify safety' },
+  { id: 'MCP-SCAN', severity: 'high',    description: 'MCP config file could not be read (permission denied)' },
+];
+
 export interface Finding {
   file: string;
   rule_id: string;
@@ -16,6 +42,8 @@ export interface Finding {
   server_name: string;
   message: string;
   remediation: string;
+  /** 1-based line of the server's definition in the config file, when resolvable. */
+  line?: number;
 }
 
 interface MCPServer {
@@ -101,17 +129,20 @@ export function isEmbeddedHostFile(filePath: string): boolean {
 /** Extract the server map from any known config shape:
  * - dedicated files: { mcpServers: {...} } or VS Code's { servers: {...} }
  * - embedded hosts:  { mcpServers: {...} } (Claude/Gemini settings) or
- *                    { mcp: { servers: {...} } } (VS Code settings.json)   */
-function extractServers(config: Record<string, unknown>): Record<string, MCPServer> | null {
+ *                    { mcp: { servers: {...} } } (VS Code settings.json)
+ * Also returns the JSON path to the map so findings can carry line numbers. */
+function extractServers(
+  config: Record<string, unknown>,
+): { servers: Record<string, MCPServer>; path: string[] } | null {
   if (config.mcpServers && typeof config.mcpServers === 'object') {
-    return config.mcpServers as Record<string, MCPServer>;
+    return { servers: config.mcpServers as Record<string, MCPServer>, path: ['mcpServers'] };
   }
   if (config.servers && typeof config.servers === 'object') {
-    return config.servers as Record<string, MCPServer>;
+    return { servers: config.servers as Record<string, MCPServer>, path: ['servers'] };
   }
   const mcp = config.mcp as Record<string, unknown> | undefined;
   if (mcp && typeof mcp === 'object' && mcp.servers && typeof mcp.servers === 'object') {
-    return mcp.servers as Record<string, MCPServer>;
+    return { servers: mcp.servers as Record<string, MCPServer>, path: ['mcp', 'servers'] };
   }
   return null;
 }
@@ -140,10 +171,26 @@ export function analyzeConfig(
     return embedded ? [] : [parseErrorFinding(filePath)];
   }
 
-  const servers = extractServers(config as Record<string, unknown>);
+  const extracted = extractServers(config as Record<string, unknown>);
+  const servers = extracted?.servers ?? null;
 
   // Embedded settings files without an MCP section are out of scope.
   if (embedded && servers === null) return [];
+
+  // Best-effort parse tree so findings can carry the line each server is
+  // defined on (SARIF regions, clickable output). Analysis never depends on it.
+  let tree: Node | undefined;
+  try {
+    tree = parseTree(content);
+  } catch {
+    tree = undefined;
+  }
+  const lineOf = (serverName: string): number | undefined => {
+    if (!tree || !extracted) return undefined;
+    const node = findNodeAtLocation(tree, [...extracted.path, serverName]);
+    if (!node) return undefined;
+    return content.slice(0, node.offset).split('\n').length;
+  };
 
   // MCP-005: file not tracked by git (may have been injected)
   if (!isGitTracked) {
@@ -286,6 +333,11 @@ export function analyzeConfig(
         message: `Server "${serverName}" passed all detection rules.`,
         remediation: 'No action required.',
       });
+    }
+
+    const lineNo = lineOf(serverName);
+    if (lineNo !== undefined) {
+      for (const f of serverFindings) f.line = lineNo;
     }
 
     findings.push(...serverFindings);

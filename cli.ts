@@ -1,24 +1,30 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { readFileSync, writeFileSync, existsSync, chmodSync } from 'fs';
-import { execSync } from 'child_process';
-import { resolve, relative, dirname } from 'path';
+import { readFileSync, writeFileSync, existsSync, chmodSync, mkdirSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { resolve, relative, dirname, join } from 'path';
 import { discoverConfigs } from './discovery.js';
-import { analyzeConfig, type Finding, type Severity, SEVERITY_RANK } from './engine.js';
+import { analyzeConfig, RULES, type Finding, type Severity, SEVERITY_RANK } from './engine.js';
+import { toSarif } from './sarif.js';
 
-const VERSION = '0.2.0';
-
-const RULES = [
-  { id: 'MCP-001', severity: 'critical', description: 'Server command or args execute a remote URL or network tool (curl, wget, https://)' },
-  { id: 'MCP-002', severity: 'high',     description: 'Server uses npx/uvx/pipx with an unversioned package, in command or args (supply-chain risk)' },
-  { id: 'MCP-003', severity: 'high',     description: 'Server env block inherits high-value credential env vars (AWS_*, GITHUB_TOKEN, etc.)' },
-  { id: 'MCP-004', severity: 'medium',   description: 'Server command or args reference a path outside the repository (absolute or ../)' },
-  { id: 'MCP-005', severity: 'medium',   description: 'MCP config file is not tracked by git (may have been injected)' },
-  { id: 'MCP-006', severity: 'info',     description: 'Server passed all detection rules (inventory signal)' },
-  { id: 'MCP-007', severity: 'critical', description: 'Hardcoded secret-looking value in env or headers (committed credential; ${VAR} interpolations exempt)' },
-  { id: 'MCP-008', severity: 'info',     description: 'Remote MCP server (url-based) declared -- inventory; escalates to HIGH over insecure http://' },
-  { id: 'MCP-009', severity: 'medium',   description: 'Shell command-chaining metacharacters in command/args ($(), backticks, | sh)' },
-];
+// Single source of truth for the version: this package's package.json. The
+// location differs between the built layout (dist/cli.js, one level down) and
+// running the TypeScript source directly under tsx (cli.ts, package root).
+// The name check prevents picking up an unrelated parent package.json.
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+function loadVersion(): string {
+  for (const p of [join(moduleDir, 'package.json'), join(moduleDir, '..', 'package.json')]) {
+    try {
+      const pkg = JSON.parse(readFileSync(p, 'utf-8')) as { name?: string; version?: string };
+      if (pkg.name === 'mcpscan' && pkg.version) return pkg.version;
+    } catch {
+      /* try next */
+    }
+  }
+  return '0.0.0';
+}
+const VERSION = loadVersion();
 
 const SEVERITY_LABEL: Record<Severity, string> = {
   critical: '[CRITICAL]',
@@ -32,7 +38,10 @@ function isFileGitTracked(filePath: string): boolean {
     // cwd MUST be the file's own directory: without it the check runs
     // against whatever repo the shell happens to be in, corrupting MCP-005
     // both directions when scanning a repo from outside it (v0.1.0 bug).
-    execSync(`git ls-files --error-unmatch "${filePath}"`, {
+    // execFileSync (no shell): the path is untrusted input from the scanned
+    // repo -- interpolating it into a shell string would let a crafted
+    // filename execute commands.
+    execFileSync('git', ['ls-files', '--error-unmatch', '--', filePath], {
       stdio: 'ignore',
       cwd: dirname(filePath),
     });
@@ -44,7 +53,7 @@ function isFileGitTracked(filePath: string): boolean {
 
 function isInGitRepo(dir: string): boolean {
   try {
-    execSync('git rev-parse --is-inside-work-tree', { stdio: 'ignore', cwd: dir });
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { stdio: 'ignore', cwd: dir });
     return true;
   } catch {
     return false;
@@ -58,7 +67,14 @@ function parseSeverity(s: string): Severity {
 
 function scanDirectory(
   scanRoot: string,
-  opts: { json: boolean; severity: Severity; failOn: Severity; quiet: boolean; maxDepth?: number },
+  opts: {
+    json: boolean;
+    sarif: boolean;
+    severity: Severity;
+    failOn: Severity;
+    quiet: boolean;
+    maxDepth?: number;
+  },
 ): number {
   const absRoot = resolve(scanRoot);
   const configFiles = discoverConfigs(absRoot, opts.maxDepth);
@@ -94,6 +110,11 @@ function scanDirectory(
   const filtered = allFindings.filter(
     f => SEVERITY_RANK[f.severity] >= SEVERITY_RANK[opts.severity],
   );
+
+  if (opts.sarif) {
+    process.stdout.write(JSON.stringify(toSarif(filtered, VERSION), null, 2) + '\n');
+    return filtered.some(f => SEVERITY_RANK[f.severity] >= SEVERITY_RANK[opts.failOn]) ? 1 : 0;
+  }
 
   if (opts.json) {
     if (!opts.quiet) process.stdout.write(JSON.stringify(filtered, null, 2) + '\n');
@@ -182,15 +203,22 @@ function installHook(targetDir: string): void {
     process.exit(2);
   }
 
-  let gitRoot: string;
+  // --git-path respects core.hooksPath, worktrees, and submodules -- a
+  // hardcoded .git/hooks path silently installs a hook git never runs.
+  let hooksDir: string;
   try {
-    gitRoot = execSync('git rev-parse --show-toplevel', { cwd: absDir, encoding: 'utf-8' }).trim();
+    const raw = execFileSync('git', ['rev-parse', '--git-path', 'hooks'], {
+      cwd: absDir,
+      encoding: 'utf-8',
+    }).trim();
+    hooksDir = resolve(absDir, raw);
   } catch {
-    console.error('mcpscan: could not determine git root');
+    console.error('mcpscan: could not determine git hooks directory');
     process.exit(2);
   }
 
-  const hookPath = `${gitRoot}/.git/hooks/pre-commit`;
+  mkdirSync(hooksDir, { recursive: true });
+  const hookPath = join(hooksDir, 'pre-commit');
 
   if (existsSync(hookPath)) {
     const existing = readFileSync(hookPath, 'utf-8');
@@ -223,6 +251,7 @@ program
   .version(VERSION, '-v, --version')
   .argument('[path]', 'directory to scan', '.')
   .option('--json', 'output findings as JSON array')
+  .option('--sarif', 'output findings as SARIF 2.1.0 (for GitHub code scanning)')
   .option('--quiet', 'suppress all output (exit code only)')
   .option('--max-depth <n>', 'limit directory traversal depth', parseInt)
   .option(
@@ -239,12 +268,20 @@ program
     try {
       const severity = parseSeverity(opts.severity);
       const failOn = parseSeverity(opts.failOn);
+      if (opts.json && opts.sarif) {
+        throw new Error('--json and --sarif are mutually exclusive');
+      }
+      const maxDepth = opts.maxDepth as number | undefined;
+      if (maxDepth !== undefined && (!Number.isInteger(maxDepth) || maxDepth < 0)) {
+        throw new Error('--max-depth must be a non-negative integer');
+      }
       const exitCode = scanDirectory(scanPath, {
         json: Boolean(opts.json),
+        sarif: Boolean(opts.sarif),
         quiet: Boolean(opts.quiet),
         severity,
         failOn,
-        maxDepth: opts.maxDepth as number | undefined,
+        maxDepth,
       });
       process.exit(exitCode);
     } catch (err) {

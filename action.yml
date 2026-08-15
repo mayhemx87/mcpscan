@@ -1,0 +1,58 @@
+name: 'mcpscan'
+description: 'Scan repository MCP config files for supply-chain and credential risks before an AI editor auto-executes them'
+author: 'mayhemx87'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  path:
+    description: 'Directory to scan'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'Fail the job if any finding is at or above this severity (critical|high|medium)'
+    required: false
+    default: 'high'
+  severity:
+    description: 'Minimum severity to report (critical|high|medium|info)'
+    required: false
+    default: 'info'
+  sarif-file:
+    description: 'If set, also write SARIF output to this file (upload it with github/codeql-action/upload-sarif)'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Build mcpscan
+      shell: bash
+      run: |
+        cd "$GITHUB_ACTION_PATH"
+        npm ci --no-audit --no-fund
+        npm run build
+
+    - name: Scan
+      shell: bash
+      # Inputs go through env, never string interpolation into the script:
+      # a crafted input must stay data, not become code.
+      env:
+        SCAN_PATH: ${{ inputs.path }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        SEVERITY: ${{ inputs.severity }}
+        SARIF_FILE: ${{ inputs.sarif-file }}
+      run: |
+        set +e
+        if [ -n "$SARIF_FILE" ]; then
+          node "$GITHUB_ACTION_PATH/dist/cli.js" "$SCAN_PATH" \
+            --sarif --severity "$SEVERITY" --fail-on "$FAIL_ON" > "$SARIF_FILE"
+          echo "SARIF written to $SARIF_FILE"
+        fi
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "$SCAN_PATH" \
+          --severity "$SEVERITY" --fail-on "$FAIL_ON"
+        exit $?

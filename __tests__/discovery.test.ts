@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { mkdtempSync, rmSync, symlinkSync } from 'fs';
+import { tmpdir } from 'os';
 import { discoverConfigs } from '../discovery.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,5 +52,35 @@ describe('discoverConfigs -- C1', () => {
     // Regression guard: discovery must skip these dirs
     const found = discoverConfigs(join(FIXTURES, 'clean-repo'));
     expect(found.every(f => !f.includes('node_modules') && !f.includes('.git'))).toBe(true);
+  });
+
+  it('finds .roo/mcp.json (Roo Code)', () => {
+    const found = discoverConfigs(join(FIXTURES, 'roo'));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/\.roo[/\\]mcp\.json$/);
+  });
+
+  it('finds .kiro/settings/mcp.json (Kiro)', () => {
+    const found = discoverConfigs(join(FIXTURES, 'kiro'));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/\.kiro[/\\]settings[/\\]mcp\.json$/);
+  });
+
+  it('does not follow symlinked directories (loop / escape safety)', () => {
+    // A symlink loop must not hang discovery, and a symlink pointing outside
+    // the scan root must not widen the scan. Skipped where symlinks cannot
+    // be created (e.g. Windows without developer mode).
+    const dir = mkdtempSync(join(tmpdir(), 'mcpscan-symlink-'));
+    try {
+      try {
+        symlinkSync(dir, join(dir, 'loop'), 'dir');
+      } catch {
+        return; // cannot create symlinks on this platform -- nothing to test
+      }
+      const found = discoverConfigs(dir);
+      expect(found).toHaveLength(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { spawnSync } from 'child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -196,6 +196,54 @@ describe('CLI -- C3', () => {
       const findings = JSON.parse(stdout) as Array<{ file: string }>;
       for (const f of findings) {
         expect(f.file.startsWith('/')).toBe(false);
+      }
+    });
+  });
+
+  describe('--sarif flag', () => {
+    it('outputs valid SARIF 2.1.0 and exits 1 for cve-12957', () => {
+      const { stdout, exitCode } = runCli([join(FIXTURES, 'cve-12957'), '--sarif']);
+      expect(exitCode).toBe(1);
+      const sarif = JSON.parse(stdout) as {
+        version: string;
+        runs: Array<{ tool: { driver: { name: string } }; results: Array<{ ruleId: string }> }>;
+      };
+      expect(sarif.version).toBe('2.1.0');
+      expect(sarif.runs[0].tool.driver.name).toBe('mcpscan');
+      expect(sarif.runs[0].results.some(r => r.ruleId === 'MCP-001')).toBe(true);
+    });
+
+    it('rejects --json combined with --sarif with exit 2', () => {
+      const { exitCode, stderr } = runCli([join(FIXTURES, 'cve-12957'), '--json', '--sarif']);
+      expect(exitCode).toBe(2);
+      expect(stderr).toMatch(/mutually exclusive/);
+    });
+  });
+
+  describe('--max-depth validation', () => {
+    it('rejects a non-numeric --max-depth with exit 2', () => {
+      const { exitCode, stderr } = runCli([join(FIXTURES, 'clean-repo'), '--max-depth', 'abc']);
+      expect(exitCode).toBe(2);
+      expect(stderr).toMatch(/max-depth/);
+    });
+  });
+
+  describe('untrusted filenames', () => {
+    it('handles config paths containing shell metacharacters without executing them', () => {
+      // isFileGitTracked receives paths from the scanned repo; a crafted
+      // directory name must be passed as an argv element, never a shell string.
+      const evilDir = mkdtempSync(join(tmpdir(), 'mcpscan-evil-'));
+      const canary = join(evilDir, 'pwned');
+      try {
+        spawnSync('git', ['init', '-q'], { cwd: evilDir });
+        const trap = join(evilDir, `\`touch ${canary}\``);
+        mkdirSync(trap, { recursive: true });
+        writeFileSync(join(trap, '.mcp.json'), JSON.stringify({ mcpServers: { s: { command: 'node ./x.js' } } }));
+        const { exitCode } = runCli([evilDir]);
+        expect([0, 1]).toContain(exitCode); // scan completes either way
+        expect(existsSync(canary)).toBe(false); // and nothing was executed
+      } finally {
+        rmSync(evilDir, { recursive: true, force: true });
       }
     });
   });
