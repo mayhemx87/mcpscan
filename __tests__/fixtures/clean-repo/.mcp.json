@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "local-tools": {
+      "command": "./node_modules/.bin/my-mcp-server",
+      "args": ["--port", "3000"]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "aws-tools": {
+      "command": "npx @aws/mcp-server@1.0.0",
+      "env": {
+        "AWS_ACCESS_KEY_ID": "$AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY": "$AWS_SECRET_ACCESS_KEY"
+      }
+    }
+  }
+}
