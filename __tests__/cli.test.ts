@@ -233,15 +233,19 @@ describe('CLI -- C3', () => {
       // isFileGitTracked receives paths from the scanned repo; a crafted
       // directory name must be passed as an argv element, never a shell string.
       const evilDir = mkdtempSync(join(tmpdir(), 'mcpscan-evil-'));
-      const canary = join(evilDir, 'pwned');
       try {
         spawnSync('git', ['init', '-q'], { cwd: evilDir });
-        const trap = join(evilDir, `\`touch ${canary}\``);
+        // The trap name must stay Windows-legal (no colons), so the canary is
+        // a bare filename: the vulnerable execSync ran with cwd = the config's
+        // own directory, so a shell-interpreted backtick would create the
+        // canary right inside the trap dir.
+        const trap = join(evilDir, '`touch pwned`');
         mkdirSync(trap, { recursive: true });
         writeFileSync(join(trap, '.mcp.json'), JSON.stringify({ mcpServers: { s: { command: 'node ./x.js' } } }));
         const { exitCode } = runCli([evilDir]);
         expect([0, 1]).toContain(exitCode); // scan completes either way
-        expect(existsSync(canary)).toBe(false); // and nothing was executed
+        expect(existsSync(join(trap, 'pwned'))).toBe(false); // and nothing was executed
+        expect(existsSync(join(evilDir, 'pwned'))).toBe(false);
       } finally {
         rmSync(evilDir, { recursive: true, force: true });
       }
