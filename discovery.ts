@@ -13,6 +13,10 @@ const SKIP_DIRS = new Set(['.git', 'node_modules']);
  */
 const MCP_CONFIG_SUFFIXES = [
   '.mcp.json',
+  // A bare `mcp.json` in any directory. Besides Claude Code's own file this is
+  // the exact path several clients auto-load from their own dot-directory --
+  // Trae (`.trae/mcp.json`) among them -- so those need no entry of their own.
+  // Keep new clients out of this list unless their filename differs.
   'mcp.json',
   '.amazonq/mcp.json',
   '.cursor/mcp.json',
