@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "junie-tools": {
+      "command": "npx",
+      "args": ["-y", "unpinned-junie-server"]
+    },
+    "junie-remote": {
+      "url": "https://mcp.example.com/sse"
+    }
+  }
+}

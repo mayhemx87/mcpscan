@@ -119,6 +119,7 @@ Dedicated MCP config files and editor settings files that embed MCP servers:
 | `.claude/settings.json`, `.claude/settings.local.json` | Claude Code |
 | `.gemini/settings.json` | Gemini CLI |
 | `.zed/settings.json` (`context_servers`) | Zed |
+| `.junie/mcp/mcp.json` | Junie |
 
 Both `mcpServers` and VS Code's `servers` keys are understood, as is Zed's
 `context_servers` key; `command` and `args` are analyzed together, including

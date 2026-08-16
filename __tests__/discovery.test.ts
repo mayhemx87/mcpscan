@@ -81,6 +81,15 @@ describe('discoverConfigs -- C1', () => {
     expect(found[0]).toMatch(/\.trae[/\\]mcp\.json$/);
   });
 
+  it('finds .junie/mcp/mcp.json (Junie)', () => {
+    // Covered by the bare `mcp.json` suffix rather than an entry of its own
+    // (`.junie/mcp/mcp.json` ends with `mcp.json`). Pinned so a future
+    // narrowing of that suffix cannot silently drop Junie.
+    const found = discoverConfigs(join(FIXTURES, 'junie'));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/\.junie[/\\]mcp[/\\]mcp\.json$/);
+  });
+
   it('does not follow symlinked directories (loop / escape safety)', () => {
     // A symlink loop must not hang discovery, and a symlink pointing outside
     // the scan root must not widen the scan. Skipped where symlinks cannot
