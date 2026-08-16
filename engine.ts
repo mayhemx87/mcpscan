@@ -274,10 +274,13 @@ export function analyzeConfig(
 
     // MCP-004: absolute path or path traversal outside repo
     const cmd = command;
+    const isWindowsAbsolute = (p: string) => /^[A-Za-z]:[\\/]/.test(p) || /^\\\\/.test(p);
     if (
       cmd.startsWith('/') ||
       args.some(a => a.startsWith('/')) ||
-      /(?:^|[\s;|&])\.\.\//.test(line)
+      isWindowsAbsolute(cmd) ||
+      args.some(isWindowsAbsolute) ||
+      /(?:^|[\s;|&])\.\.[\\/]/.test(line)
     ) {
       serverFindings.push({
         file: filePath,
