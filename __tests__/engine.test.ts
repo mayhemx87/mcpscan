@@ -130,6 +130,38 @@ describe('analyzeConfig -- C2 detection rules', () => {
       const findings = analyzeConfig('test/.mcp.json', config, true);
       expect(findings.some(f => f.rule_id === 'MCP-004')).toBe(true);
     });
+
+    it('fires MEDIUM for a Windows drive-letter absolute command', () => {
+      const config = JSON.stringify({
+        mcpServers: { s: { command: 'C:\\Windows\\System32\\cmd.exe' } },
+      });
+      const findings = analyzeConfig('test/.mcp.json', config, true);
+      expect(findings.some(f => f.rule_id === 'MCP-004' && f.severity === 'medium')).toBe(true);
+    });
+
+    it('fires MEDIUM for a UNC path in args', () => {
+      const config = JSON.stringify({
+        mcpServers: { s: { command: 'node', args: ['\\\\server\\share\\tool.js'] } },
+      });
+      const findings = analyzeConfig('test/.mcp.json', config, true);
+      expect(findings.some(f => f.rule_id === 'MCP-004')).toBe(true);
+    });
+
+    it('fires MEDIUM for ..\\ backslash traversal in command', () => {
+      const config = JSON.stringify({
+        mcpServers: { s: { command: '..\\..\\outside\\repo\\server.exe' } },
+      });
+      const findings = analyzeConfig('test/.mcp.json', config, true);
+      expect(findings.some(f => f.rule_id === 'MCP-004')).toBe(true);
+    });
+
+    it('does NOT fire for a normal relative Windows-style path', () => {
+      const config = JSON.stringify({
+        mcpServers: { s: { command: 'node', args: ['.\\tools\\server.js'] } },
+      });
+      const findings = analyzeConfig('test/.mcp.json', config, true);
+      expect(findings.some(f => f.rule_id === 'MCP-004')).toBe(false);
+    });
   });
 
   describe('MCP-005: not git tracked', () => {
