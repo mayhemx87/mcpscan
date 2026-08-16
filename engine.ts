@@ -216,11 +216,17 @@ export function analyzeConfig(
     // is {"command": "npx", "args": ["-y", "pkg"]}, invisible to any rule
     // that inspects `command` alone (the v0.1.0 gap).
     const command = typeof server.command === 'string' ? server.command : server.command?.path ?? '';
+    // Legacy Zed command.args and the top-level args are merged into one
+    // array -- MCP-004's absolute-path check scans `args` directly, so
+    // command.args must live there too or it silently evades detection.
     const commandArgs = typeof server.command === 'object' && Array.isArray(server.command.args)
       ? server.command.args.filter(a => typeof a === 'string')
       : [];
-    const args = Array.isArray(server.args) ? server.args.filter(a => typeof a === 'string') : [];
-    const line = [command, ...commandArgs, ...args].join(' ').trim();
+    const args = [
+      ...commandArgs,
+      ...(Array.isArray(server.args) ? server.args.filter(a => typeof a === 'string') : []),
+    ];
+    const line = [command, ...args].join(' ').trim();
     const serverFindings: Finding[] = [];
 
     // MCP-001: remote URL or network command execution

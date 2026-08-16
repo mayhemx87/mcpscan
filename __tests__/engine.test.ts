@@ -336,4 +336,16 @@ describe('v0.2.0 -- embedded host files + alternate server keys', () => {
   it('Zed settings without context_servers produces zero findings', () => {
     expect(analyzeConfig('.zed/settings.json', JSON.stringify({ theme: 'One Dark' }), false)).toEqual([]);
   });
+
+  it('MCP-004 fires on an absolute path inside Zed legacy command.args', () => {
+    // Regression: command.args and top-level args used to be checked as two
+    // separate arrays, and MCP-004's absolute-path scan only covered the
+    // top-level one -- an absolute path hidden in command.args silently
+    // evaded detection (fell through to MCP-006 clean).
+    const cfg = JSON.stringify({
+      context_servers: { s: { source: 'custom', command: { path: 'npx', args: ['/etc/passwd'] } } },
+    });
+    const f = analyzeConfig('.zed/settings.json', cfg, true);
+    expect(f.some(x => x.rule_id === 'MCP-004')).toBe(true);
+  });
 });
