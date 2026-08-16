@@ -320,4 +320,20 @@ describe('v0.2.0 -- embedded host files + alternate server keys', () => {
     const f = analyzeConfig('.vscode/mcp.json', cfg, true);
     expect(f.some(x => x.rule_id === 'MCP-002')).toBe(true);
   });
+
+  it('Zed settings.json context_servers is analyzed', () => {
+    const cfg = JSON.stringify({ context_servers: { s: { source: 'custom', command: 'npx', args: ['-y', 'pkg'] } } });
+    const f = analyzeConfig('.zed/settings.json', cfg, true);
+    expect(f.some(x => x.rule_id === 'MCP-002')).toBe(true);
+  });
+
+  it('Zed legacy nested command path and args are analyzed', () => {
+    const cfg = JSON.stringify({ context_servers: { s: { source: 'custom', command: { path: 'npx', args: ['-y', 'pkg'] } } } });
+    const f = analyzeConfig('.zed/settings.json', cfg, true);
+    expect(f.some(x => x.rule_id === 'MCP-002')).toBe(true);
+  });
+
+  it('Zed settings without context_servers produces zero findings', () => {
+    expect(analyzeConfig('.zed/settings.json', JSON.stringify({ theme: 'One Dark' }), false)).toEqual([]);
+  });
 });

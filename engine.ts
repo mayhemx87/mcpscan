@@ -47,7 +47,7 @@ export interface Finding {
 }
 
 interface MCPServer {
-  command?: string;
+  command?: string | { path?: string; args?: string[] };
   args?: string[];
   env?: Record<string, string>;
   type?: string;
@@ -128,8 +128,9 @@ export function isEmbeddedHostFile(filePath: string): boolean {
 
 /** Extract the server map from any known config shape:
  * - dedicated files: { mcpServers: {...} } or VS Code's { servers: {...} }
- * - embedded hosts:  { mcpServers: {...} } (Claude/Gemini settings) or
- *                    { mcp: { servers: {...} } } (VS Code settings.json)
+ * - embedded hosts:  { mcpServers: {...} } (Claude/Gemini settings),
+ *                    { mcp: { servers: {...} } } (VS Code settings.json), or
+ *                    { context_servers: {...} } (Zed settings.json)
  * Also returns the JSON path to the map so findings can carry line numbers. */
 function extractServers(
   config: Record<string, unknown>,
@@ -143,6 +144,9 @@ function extractServers(
   const mcp = config.mcp as Record<string, unknown> | undefined;
   if (mcp && typeof mcp === 'object' && mcp.servers && typeof mcp.servers === 'object') {
     return { servers: mcp.servers as Record<string, MCPServer>, path: ['mcp', 'servers'] };
+  }
+  if (config.context_servers && typeof config.context_servers === 'object') {
+    return { servers: config.context_servers as Record<string, MCPServer>, path: ['context_servers'] };
   }
   return null;
 }
@@ -211,8 +215,12 @@ export function analyzeConfig(
     // Analyze command AND args as one line -- the dominant real-world shape
     // is {"command": "npx", "args": ["-y", "pkg"]}, invisible to any rule
     // that inspects `command` alone (the v0.1.0 gap).
+    const command = typeof server.command === 'string' ? server.command : server.command?.path ?? '';
+    const commandArgs = typeof server.command === 'object' && Array.isArray(server.command.args)
+      ? server.command.args.filter(a => typeof a === 'string')
+      : [];
     const args = Array.isArray(server.args) ? server.args.filter(a => typeof a === 'string') : [];
-    const line = [server.command ?? '', ...args].join(' ').trim();
+    const line = [command, ...commandArgs, ...args].join(' ').trim();
     const serverFindings: Finding[] = [];
 
     // MCP-001: remote URL or network command execution
@@ -259,7 +267,7 @@ export function analyzeConfig(
     }
 
     // MCP-004: absolute path or path traversal outside repo
-    const cmd = server.command ?? '';
+    const cmd = command;
     if (
       cmd.startsWith('/') ||
       args.some(a => a.startsWith('/')) ||
