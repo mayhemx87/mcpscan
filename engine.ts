@@ -47,7 +47,7 @@ export interface Finding {
 }
 
 interface MCPServer {
-  command?: string;
+  command?: string | { path?: string; args?: string[] };
   args?: string[];
   env?: Record<string, string>;
   type?: string;
@@ -144,6 +144,9 @@ function extractServers(
   if (mcp && typeof mcp === 'object' && mcp.servers && typeof mcp.servers === 'object') {
     return { servers: mcp.servers as Record<string, MCPServer>, path: ['mcp', 'servers'] };
   }
+  if (config.context_servers && typeof config.context_servers === 'object') {
+    return { servers: config.context_servers as Record<string, MCPServer>, path: ['context_servers'] };
+  }
   return null;
 }
 
@@ -211,8 +214,13 @@ export function analyzeConfig(
     // Analyze command AND args as one line -- the dominant real-world shape
     // is {"command": "npx", "args": ["-y", "pkg"]}, invisible to any rule
     // that inspects `command` alone (the v0.1.0 gap).
-    const args = Array.isArray(server.args) ? server.args.filter(a => typeof a === 'string') : [];
-    const line = [server.command ?? '', ...args].join(' ').trim();
+    const legacyCommand = server.command && typeof server.command === 'object' ? server.command : undefined;
+    const command = typeof server.command === 'string' ? server.command : legacyCommand?.path ?? '';
+    const args = [
+      ...(Array.isArray(legacyCommand?.args) ? legacyCommand.args : []),
+      ...(Array.isArray(server.args) ? server.args : []),
+    ].filter((a): a is string => typeof a === 'string');
+    const line = [command, ...args].join(' ').trim();
     const serverFindings: Finding[] = [];
 
     // MCP-001: remote URL or network command execution
@@ -259,7 +267,7 @@ export function analyzeConfig(
     }
 
     // MCP-004: absolute path or path traversal outside repo
-    const cmd = server.command ?? '';
+    const cmd = command;
     if (
       cmd.startsWith('/') ||
       args.some(a => a.startsWith('/')) ||

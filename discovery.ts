@@ -26,6 +26,7 @@ const MCP_CONFIG_SUFFIXES = [
   '.claude/settings.json',
   '.claude/settings.local.json',
   '.gemini/settings.json',
+  '.zed/settings.json',
 ];
 
 function isMcpConfigPath(relPath: string): boolean {

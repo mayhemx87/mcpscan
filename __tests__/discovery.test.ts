@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { mkdtempSync, rmSync, symlinkSync } from 'fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { discoverConfigs } from '../discovery.js';
 
@@ -64,6 +64,19 @@ describe('discoverConfigs -- C1', () => {
     const found = discoverConfigs(join(FIXTURES, 'kiro'));
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/\.kiro[/\\]settings[/\\]mcp\.json$/);
+  });
+
+  it('finds .zed/settings.json (Zed)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mcpscan-zed-'));
+    try {
+      mkdirSync(join(dir, '.zed'), { recursive: true });
+      writeFileSync(join(dir, '.zed', 'settings.json'), '{}');
+      const found = discoverConfigs(dir);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatch(/\.zed[/\\]settings\.json$/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('does not follow symlinked directories (loop / escape safety)', () => {

@@ -117,6 +117,7 @@ Dedicated MCP config files and editor settings files that embed MCP servers:
 | `.kiro/settings/mcp.json` | Kiro |
 | `.claude/settings.json`, `.claude/settings.local.json` | Claude Code |
 | `.gemini/settings.json` | Gemini CLI |
+| `.zed/settings.json` (`context_servers`) | Zed |
 
 Both `mcpServers` and VS Code's `servers` keys are understood; `command` and
 `args` are analyzed together; remote (`url`-based) servers are covered. Nested
