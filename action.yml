@@ -1,4 +1,4 @@
-name: 'mcpscan'
+name: 'mcpscan MCP Config Scanner'
 description: 'Scan repository MCP config files for supply-chain and credential risks before an AI editor auto-executes them'
 author: 'mayhemx87'
 branding:
