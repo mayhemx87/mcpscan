@@ -66,6 +66,12 @@ describe('discoverConfigs -- C1', () => {
     expect(found[0]).toMatch(/\.kiro[/\\]settings[/\\]mcp\.json$/);
   });
 
+  it('finds .zed/settings.json (Zed)', () => {
+    const found = discoverConfigs(join(FIXTURES, 'zed'));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/\.zed[/\\]settings\.json$/);
+  });
+
   it('does not follow symlinked directories (loop / escape safety)', () => {
     // A symlink loop must not hang discovery, and a symlink pointing outside
     // the scan root must not widen the scan. Skipped where symlinks cannot

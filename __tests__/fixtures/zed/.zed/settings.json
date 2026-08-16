@@ -1,0 +1,9 @@
+{
+  "context_servers": {
+    "demo": {
+      "source": "custom",
+      "command": "npx",
+      "args": ["-y", "demo-server"]
+    }
+  }
+}

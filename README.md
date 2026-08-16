@@ -117,9 +117,11 @@ Dedicated MCP config files and editor settings files that embed MCP servers:
 | `.kiro/settings/mcp.json` | Kiro |
 | `.claude/settings.json`, `.claude/settings.local.json` | Claude Code |
 | `.gemini/settings.json` | Gemini CLI |
+| `.zed/settings.json` (`context_servers`) | Zed |
 
-Both `mcpServers` and VS Code's `servers` keys are understood; `command` and
-`args` are analyzed together; remote (`url`-based) servers are covered. Nested
+Both `mcpServers` and VS Code's `servers` keys are understood, as is Zed's
+`context_servers` key; `command` and `args` are analyzed together, including
+Zed's legacy nested command format; remote (`url`-based) servers are covered. Nested
 occurrences of these paths are scanned too (any subdirectory can be opened as a
 workspace root). Only `.git/` and `node_modules/` are skipped; `.gitignore` is
 deliberately ignored — an injected config would be exactly the file that's
