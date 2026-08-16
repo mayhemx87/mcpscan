@@ -66,6 +66,12 @@ describe('discoverConfigs -- C1', () => {
     expect(found[0]).toMatch(/\.kiro[/\\]settings[/\\]mcp\.json$/);
   });
 
+  it('finds .trae/mcp.json (Trae)', () => {
+    const found = discoverConfigs(join(FIXTURES, 'trae'));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/\.trae[/\\]mcp\.json$/);
+  });
+
   it('finds .zed/settings.json (Zed)', () => {
     const found = discoverConfigs(join(FIXTURES, 'zed'));
     expect(found).toHaveLength(1);

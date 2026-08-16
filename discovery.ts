@@ -20,6 +20,7 @@ const MCP_CONFIG_SUFFIXES = [
   '.windsurf/mcp.json',
   '.roo/mcp.json',
   '.kiro/settings/mcp.json',
+  '.trae/mcp.json',
   // Embedded hosts (v0.2.0): MCP servers under a nested key; the engine
   // ignores these files entirely when they carry no MCP section.
   '.vscode/settings.json',
