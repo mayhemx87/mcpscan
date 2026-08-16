@@ -91,7 +91,7 @@ the exact line of the offending server definition.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/mayhemx87/mcpscan
-    rev: v0.3.1
+    rev: v0.4.0
     hooks:
       - id: mcpscan
 ```
