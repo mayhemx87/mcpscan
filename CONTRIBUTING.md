@@ -30,6 +30,9 @@ Every AI editor/agent that auto-loads MCP configs from a repo path should be
 covered. To add one:
 
 1. Add the repo-relative path to `MCP_CONFIG_SUFFIXES` in `discovery.ts`.
+   Check first — a client whose file is a bare `<dot-dir>/mcp.json` (Trae, for
+   example) is already matched by the `mcp.json` suffix and needs no new entry,
+   just the fixture and test below.
 2. If the file is a general settings file that merely *embeds* MCP servers under
    a nested key, make sure `isEmbeddedHostFile()` and `extractServers()` in
    `engine.ts` understand it (embedded files with no MCP section must produce

@@ -115,6 +115,7 @@ Dedicated MCP config files and editor settings files that embed MCP servers:
 | `.amazonq/mcp.json` | Amazon Q |
 | `.roo/mcp.json` | Roo Code |
 | `.kiro/settings/mcp.json` | Kiro |
+| `.trae/mcp.json` | Trae |
 | `.claude/settings.json`, `.claude/settings.local.json` | Claude Code |
 | `.gemini/settings.json` | Gemini CLI |
 | `.zed/settings.json` (`context_servers`) | Zed |
