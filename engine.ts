@@ -94,6 +94,9 @@ function looksLikeLiteralSecret(value: string): boolean {
   return SECRET_VALUE_PATTERNS.some(p => p.test(value));
 }
 
+const REPO_ESCAPE_PATH = /^(?:\/|[A-Za-z]:[\\/]|\\\\|\.\.[\\/])/;
+const PATH_TRAVERSAL_IN_LINE = /(?:^|[\s;|&])\.\.[\\/]/;
+
 /**
  * Returns true if the command line contains npx/uvx/pipx with an unversioned
  * package (handles compound commands like cmd1 && npx pkg). Runner flags
@@ -273,11 +276,9 @@ export function analyzeConfig(
     }
 
     // MCP-004: absolute path or path traversal outside repo
-    const cmd = command;
     if (
-      cmd.startsWith('/') ||
-      args.some(a => a.startsWith('/')) ||
-      /(?:^|[\s;|&])\.\.\//.test(line)
+      [command, ...args].some(value => REPO_ESCAPE_PATH.test(value.trimStart())) ||
+      PATH_TRAVERSAL_IN_LINE.test(line)
     ) {
       serverFindings.push({
         file: filePath,
